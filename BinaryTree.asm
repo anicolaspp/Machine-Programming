@@ -1,0 +1,624 @@
+TITLE   8086 Code Template (for EXE file)
+
+;       AUTHOR          nikos
+;       DATE            november 30th 2009
+;       VERSION         1.00
+;       FILE            BinaryTree.ASM
+
+; 8086 Code Template
+
+; Directive to make EXE output:
+       #MAKE_EXE#
+
+include emu8086.inc
+
+DSEG    SEGMENT 'DATA'
+
+; TODO: add your data here!!!!
+
+
+DATA DB 50H DUP(0)
+LEN DB 50
+COUNT DB 0
+
+
+DSEG    ENDS
+
+SSEG    SEGMENT STACK   'STACK'
+        DW      100h    DUP(?)
+SSEG    ENDS
+
+CSEG    SEGMENT 'CODE'
+
+;*******************************************
+
+START   PROC    FAR
+
+; Store return address to OS:
+    PUSH    DS
+    MOV     AX, 0
+    PUSH    AX
+
+; set segment registers:
+    MOV     AX, DSEG
+    MOV     DS, AX
+    MOV     ES, AX
+
+
+; TODO: add your code here!!!!
+
+	LEA SI, DATA
+	MOV DX, SI
+	INC SI
+
+PREGUNTAS:
+
+	PRINTN 'Que desea hacer?'
+	PRINTN 'Insertar	  1'
+	PRINTN 'Eliminar	  2'
+	PRINTN 'Buscar  	  3'
+	PRINTN 'Visualizar	4'
+	PRINTN 'Salir      5'
+	
+	CALL SCAN_NUM
+	PRINTN ''
+	
+	CMP CX, 5	
+	JNE CONTINUE_FLOW
+	
+	PRINTN 'BYE BYE'
+	RET
+	
+CONTINUE_FLOW:
+	CMP CX, 1
+	JE INSERTAR
+	CMP CX, 2
+	JE ELIMINA
+	CMP CX, 3
+	JE BUSCA
+	CMP CX, 4
+	JE VISUALIZA
+	
+INSERTAR:
+	CALL READ_VALUE
+	
+	PUSH SI
+	PUSH AX
+	CALL INSERT
+	JMP PREGUNTAS
+	
+	
+ELIMINA:
+	CALL READ_VALUE
+
+	PUSH SI
+	PUSH AX
+	CALL ELIMINAR
+	JMP PREGUNTAS
+	
+	
+BUSCA:
+	CALL READ_VALUE
+
+	PUSH SI
+	PUSH AX
+	CALL BUSCAR
+	MOV AX, BX
+	CALL PRINT_NUM
+	PRINTN ''
+	JMP PREGUNTAS
+	
+VISUALIZA:
+	PRINTN 'VISUALIZACION:'
+	PRINTN 'PREORDEN    1'
+	PRINTN 'INORDEN    2'
+	PRINTN 'A LO ANCHO  3'
+		
+	CALL SCAN_NUM
+	PRINTN ''
+	
+	CMP CX, 1
+	JE P_PREORDEN
+	CMP CX, 2
+	JE P_INORDEN
+	CMP CX, 3
+	JE P_BFS
+	;CMP CX, 4
+	;JE P_POSORDEN
+	
+	PRINTN 'SELECCION NO VALIDA!!!'
+	JMP VISUALIZA
+	
+P_PREORDEN:
+	PUSH SI
+	CALL PRE_ORDEN
+	PRINTN ''
+	JMP PREGUNTAS
+	
+P_INORDEN:
+	PUSH SI
+	CALL IN_ORDEN
+	PRINTN ''
+	JMP PREGUNTAS
+	
+P_BFS:
+	PUSH SI
+	CALL BFS
+	PRINTN ''
+	JMP PREGUNTAS
+	
+P_POSORDEN:
+	PUSH SI
+	CALL POS_ORDEN
+	PRINTN ''
+	JMP PREGUNTAS
+	
+; return to operating system:
+
+START   ENDP
+
+;*******************************************
+
+READ_VALUE PROC
+
+	PRINTN 'Eescriba el valor a utilizar en la accion seleccionada'
+	CALL SCAN_NUM
+	MOV AX, CX
+	PRINTN ''
+	
+	RET
+
+READ_VALUE ENDP
+
+;*******************************************
+
+HIJO PROC
+	
+	PUSH BP
+	MOV BP, SP
+	PUSH AX
+	MOV AX, BX
+	MOV BX, 2
+	MUL BX
+	MOV BX, AX
+	POP AX
+	
+	POP BP
+	RET 2
+
+HIJO ENDP
+
+;*******************************************
+
+HIJO_DERECHO PROC
+
+	PUSH BP
+	MOV BP, SP
+	
+	MOV BX, [BP] + 4
+	PUSH BX
+	CALL HIJO
+	ADD BX, 1
+	
+	POP BP
+	RET 2
+
+HIJO_DERECHO ENDP
+
+;*******************************************
+
+HIJO_IZQUIERDO PROC
+
+	PUSH BP
+	MOV BP, SP
+	
+	MOV BX, [BP] + 4
+	PUSH BX
+	CALL HIJO
+	
+	POP BP
+	RET 2
+
+HIJO_IZQUIERDO ENDP
+
+;*******************************************
+
+INSERT PROC
+	
+	PUSH BP
+	MOV BP, SP
+	MOV AX, [BP] + 6
+	MOV CX, [BP] + 4
+	MOV BX, AX
+	MOV BL, [BX]
+
+	MOV DX, SI
+	DEC DX
+	CMP BX, DX
+	JE INSERT_AND_EXIT
+	
+	CMP BX, CX
+	JE EXIT_WITHOUT_INSERT
+	
+	CMP BX, CX
+	JG TO_LEFT
+	
+	CMP BX, CX
+	JL TO_RIGTH
+	
+TO_LEFT:
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	PUSH BX
+	PUSH CX
+	CALL INSERT
+	
+	POP BP
+	RET 4
+	
+TO_RIGTH:
+	PUSH AX
+	CALL HIJO_DERECHO
+	PUSH BX
+	PUSH CX
+	CALL INSERT
+	
+	POP BP
+	RET 4
+	
+EXIT_WITHOUT_INSERT:
+	POP BP
+	RET 4
+	
+INSERT_AND_EXIT:
+	MOV BX, AX
+	MOV [BX] , CX
+	INC COUNT
+	
+	POP BP
+	RET 4
+
+INSERT ENDP
+
+;*******************************************
+
+ELIMINAR PROC
+
+	PUSH BP
+	MOV BP, SP
+	MOV AX, [BP] + 6
+	MOV CX, [BP] + 4
+	
+	MOV DX, SI
+	DEC DX
+	
+	CMP BX, DX
+	JE EXIT_ELIMINAR
+	
+	CMP BX, CX
+	JE ELIMINACION
+	
+	CMP BX, CX
+	JG ELIMINAR_IZQUIERDA
+	
+	CMP BX, CX
+	JL ELIMINAR_DERECHA
+	
+ELIMINAR_IZQUIERDA:
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	PUSH BX
+	PUSH CX
+	CALL ELIMINAR
+	
+	POP BP
+	RET 4
+	
+ELIMINAR_DERECHA:
+	PUSH AX
+	CALL HIJO_DERECHO
+	PUSH BX
+	PUSH CX
+	CALL ELIMINAR
+	
+	POP BP
+	RET 4
+	
+	
+ELIMINACION:
+
+	;HACER LA BUSQUEDA DEL ELEMENTO A REEMPLAZAR...
+	
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	MOV CX, BX
+	PUSH AX
+	CALL HIJO_DERECHO
+	OR BX, CX
+	CMP BX, 1
+	JE BUSCAR_REEMPLAZO
+	
+	MOV BX, AX
+	MOV [SI] + BX, DX
+	JMP EXIT_ELIMINAR
+	
+BUSCAR_REEMPLAZO:
+
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	CMP BX, DX
+	JE BUSCAR_POR_LA_DERECHA
+
+WHILE_1:
+	CMP BX, DX
+	JE CAMBIAR_1
+	MOV CX, BX
+	PUSH BX
+	CALL HIJO_DERECHO
+	JMP WHILE_1
+	
+CAMBIAR_1:
+	MOV BX, AX
+	MOV [SI] + BX, CX
+	PUSH CX
+	CALL HIJO_IZQUIERDO
+	PUSH CX
+	MOV CX, BX
+	POP BX
+	MOV [SI] + BX, CX
+
+BUSCAR_POR_LA_DERECHA:
+
+	
+	
+EXIT_ELIMINAR:
+	POP BP
+	RET 4
+	
+
+ELIMINAR ENDP
+
+;*******************************************
+
+BUSCAR PROC
+
+	PUSH BP
+	MOV BP, SP
+	MOV AX, [BP] + 6
+	MOV CX, [BP] + 4
+	MOV BX, AX
+	MOV BL, [BX]
+	
+	MOV DX, SI
+	DEC DX
+	
+	CMP BX, DX
+	JE EXIT_BAD
+	
+	CMP BX, CX
+	JE EXIT_OK
+	
+	CMP BX, CX
+	JG BUSCAR_IZQUIERDA
+	
+	CMP BX, CX
+	JL BUSCAR_DERECHA
+	
+BUSCAR_IZQUIERDA:
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	PUSH BX
+	PUSH CX
+	CALL BUSCAR
+	
+	POP BP
+	RET 4
+	
+BUSCAR_DERECHA:
+	PUSH AX
+	CALL HIJO_DERECHO
+	PUSH BX
+	PUSH CX
+	CALL BUSCAR
+	
+	POP BP
+	RET 4
+	
+EXIT_OK:
+	MOV BX, 1
+	POP BP
+	RET 4
+
+EXIT_BAD:
+	MOV BX, 0
+	POP BP
+	RET 4
+
+BUSCAR ENDP
+
+;*******************************************
+
+INIT PROC
+
+	MOV AX, [BP] + 4
+	MOV BX, AX
+	MOV BL, [BX]
+	
+	RET
+
+INIT ENDP
+
+;*******************************************
+
+IN_ORDEN PROC
+
+	PUSH BP
+	MOV BP, SP
+	
+	CMP COUNT, 0
+	JE EXIT_IN_ORDEN
+	
+	CALL INIT
+	
+	CMP BX, DX
+	JE EXIT_IN_ORDEN
+	
+;IN_IZQ:
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	PUSH BX
+	CALL IN_ORDEN
+	MOV AX, [BP] + 4
+
+;PRINT_ROOT:
+	CALL INIT
+	PUSH AX
+	MOV AX, BX
+	CALL PRINT_NUM
+	PRINT ' '
+	POP AX
+	
+;IN_DER:
+	PUSH AX
+	CALL HIJO_DERECHO
+	PUSH BX
+	CALL IN_ORDEN
+	MOV AX, [BP] + 4
+	
+EXIT_IN_ORDEN:
+	POP BP
+	RET 2
+
+
+IN_ORDEN ENDP
+
+;*******************************************
+
+POS_ORDEN PROC
+
+	PUSH BP
+	MOV BP, SP
+	
+	CMP COUNT, 0
+	JE EXIT_POS_ORDEN
+	
+	CALL INIT
+	
+	CMP BX, DX
+	JE EXIT_POS_ORDEN
+	
+;POS_DER:
+	PUSH AX
+	CALL HIJO_DERECHO
+	PUSH BX
+	CALL IN_ORDEN
+	MOV AX, [BP] + 4
+	
+;PRINT_ROOT:
+	CALL INIT
+	PUSH AX
+	MOV AX, BX
+	CALL PRINT_NUM
+	PRINT ' '
+	POP AX
+	
+;POS_IZQ:
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	PUSH BX
+	CALL IN_ORDEN
+	MOV AX, [BP] + 4
+
+	
+EXIT_POS_ORDEN:
+	POP BP
+	RET 2
+
+POS_ORDEN ENDP
+
+;*******************************************
+
+BFS PROC
+
+	PUSH BP
+	MOV BP, SP
+	CMP COUNT, 0
+	JE EXIT_BFS
+	
+	CALL INIT
+	MOV BX, 0
+	
+WHILE: 	XOR AX, AX
+	MOV AL, [SI] + BX
+	
+	CMP AX, DX
+	JE CONTINUE
+	
+	CALL PRINT_NUM
+	PRINT ' '
+CONTINUE:
+	CMP BL, COUNT
+	JE EXIT_BFS
+	INC BX
+	JMP WHILE	
+
+EXIT_BFS:
+	POP BP
+	RET 2
+
+BFS ENDP
+
+;*******************************************
+
+PRE_ORDEN PROC
+
+	PUSH BP
+	MOV BP, SP
+	
+	CMP COUNT, 0
+	JE EXIT_PRE_ORDEN
+	
+	CALL INIT
+	
+	CMP BX, DX
+	JE EXIT_PRE_ORDEN
+	
+;PRINT_ROOT:
+	PUSH AX
+	MOV AX, BX
+	CALL PRINT_NUM
+	PRINT ' '
+	POP AX
+	
+	
+;PRE_IZQ:
+	PUSH AX
+	CALL HIJO_IZQUIERDO
+	PUSH BX
+	CALL PRE_ORDEN
+	MOV AX, [BP] + 4
+	
+;PRE_DER:
+	PUSH AX
+	CALL HIJO_DERECHO
+	PUSH BX
+	CALL PRE_ORDEN
+	MOV AX, [BP] + 4
+	
+	
+EXIT_PRE_ORDEN:
+	POP BP
+	RET 2
+	
+PRE_ORDEN ENDP
+
+DEFINE_PRINT_NUM
+DEFINE_PRINT_NUM_UNS
+DEFINE_SCAN_NUM
+
+;*******************************************
+
+CSEG    ENDS 
+
+        END    START    ; set entry point.
+
